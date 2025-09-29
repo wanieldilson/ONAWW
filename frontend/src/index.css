@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-werewolf-bg font-medieval text-werewolf-moon;
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  
+  * {
+    @apply box-border;
+  }
+}
+
+@layer components {
+  .werewolf-card {
+    @apply bg-gradient-to-br from-werewolf-shadow/80 to-werewolf-dark/90 
+           backdrop-blur-sm border border-werewolf-moon/20 rounded-xl 
+           shadow-2xl shadow-werewolf-dark/50;
+  }
+  
+  .werewolf-button {
+    @apply bg-gradient-to-r from-werewolf-blood to-red-700 
+           hover:from-red-700 hover:to-werewolf-blood 
+           text-werewolf-moon font-semibold py-3 px-6 rounded-lg 
+           transform hover:scale-105 transition-all duration-200 
+           shadow-lg shadow-werewolf-blood/30 
+           border border-werewolf-blood/50;
+  }
+  
+  .werewolf-button:disabled {
+    @apply opacity-50 cursor-not-allowed transform-none 
+           bg-gray-600 shadow-none;
+  }
+  
+  .werewolf-input {
+    @apply bg-werewolf-dark/60 border border-werewolf-moon/30 
+           text-werewolf-moon placeholder-werewolf-moon/60 
+           rounded-lg px-4 py-3 focus:outline-none 
+           focus:border-werewolf-blood focus:ring-2 
+           focus:ring-werewolf-blood/20 transition-colors;
+  }
+  
+  .moon-glow {
+    @apply relative;
+  }
+  
+  .moon-glow::before {
+    content: '';
+    @apply absolute -inset-4 bg-moon-glow rounded-full opacity-30 blur-xl;
+    z-index: -1;
+  }
+  
+  .werewolf-title {
+    @apply text-4xl md:text-6xl font-bold text-transparent 
+           bg-clip-text bg-gradient-to-r from-werewolf-moon 
+           via-yellow-200 to-werewolf-moon drop-shadow-lg;
+  }
+  
+  .werewolf-subtitle {
+    @apply text-lg md:text-xl text-werewolf-moon/80 
+           font-medium tracking-wide;
+  }
+  
+  .error-message {
+    @apply bg-red-900/20 border border-red-500/50 
+           text-red-200 px-4 py-3 rounded-lg 
+           backdrop-blur-sm;
+  }
+  
+  .success-message {
+    @apply bg-green-900/20 border border-green-500/50 
+           text-green-200 px-4 py-3 rounded-lg 
+           backdrop-blur-sm;
+  }
+  
+  .player-card {
+    @apply bg-werewolf-dark/40 border border-werewolf-moon/20 
+           rounded-lg px-4 py-2 text-werewolf-moon 
+           backdrop-blur-sm;
+  }
+  
+  .facilitator-badge {
+    @apply bg-gradient-to-r from-yellow-600 to-yellow-500 
+           text-yellow-100 px-2 py-1 rounded-full text-xs 
+           font-semibold shadow-lg;
+  }
+  
+  .role-werewolf {
+    @apply text-red-400 font-bold drop-shadow-lg;
+  }
+  
+  .role-villager {
+    @apply text-blue-400 font-bold drop-shadow-lg;
+  }
+}
+
+@layer utilities {
+  .werewolf-pattern {
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(139, 0, 0, 0.1) 2px, transparent 2px),
+      radial-gradient(circle at 75% 75%, rgba(139, 0, 0, 0.1) 2px, transparent 2px);
+    background-size: 50px 50px;
+  }
+}
