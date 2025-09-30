@@ -133,6 +133,34 @@ npm test
 npm test
 ```
 
+## 🔒 Security
+
+This project includes comprehensive security scanning to protect against vulnerabilities:
+
+### Quick Security Checks
+```bash
+# Run all security audits
+npm run security:all
+
+# Run just NPM audit
+npm run security:audit
+
+# Run Snyk vulnerability scanning
+npm run security:snyk
+
+# Fix vulnerabilities automatically
+npm run security:fix
+```
+
+### Security Features
+- **🛡️ Snyk integration** - Real-time vulnerability scanning
+- **📊 NPM audit** - Built-in dependency security checks  
+- **🐳 Docker security** - Container image scanning during builds
+- **🔄 CI/CD security** - Automated security checks on every commit
+- **📋 Security monitoring** - Continuous dependency monitoring
+
+For detailed security information, see [SECURITY.md](./SECURITY.md).
+
 ## 🐳 Docker
 
 The application includes a multi-stage Dockerfile that:

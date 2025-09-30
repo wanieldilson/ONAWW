@@ -13,7 +13,16 @@
     "test": "npm run test:frontend && npm run test:backend",
     "test:frontend": "cd frontend && npm test",
     "test:backend": "cd backend && npm test",
-    "start": "cd backend && npm start"
+    "start": "cd backend && npm start",
+    "security:audit": "npm run security:audit:backend && npm run security:audit:frontend",
+    "security:audit:backend": "cd backend && npm run security:audit",
+    "security:audit:frontend": "cd frontend && npm run security:audit",
+    "security:snyk": "npm run security:snyk:backend && npm run security:snyk:frontend",
+    "security:snyk:backend": "cd backend && npm run security:snyk",
+    "security:snyk:frontend": "cd frontend && npm run security:snyk",
+    "security:all": "npm run security:audit && npm run security:snyk",
+    "security:fix": "cd backend && npm audit fix && cd ../frontend && npm audit fix",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install"
   },
   "keywords": ["werewolf", "game", "multiplayer", "typescript"],
   "author": "",

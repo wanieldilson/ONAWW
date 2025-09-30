@@ -1,0 +1,24 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.25.0
+
+# Configuration for Snyk security scanning
+language-settings:
+  javascript:
+    # Set npm audit threshold
+    npm-audit-level: moderate
+    
+# Ignore specific vulnerabilities with justification (use sparingly)
+ignore:
+  # Example (uncomment and adjust as needed):
+  # SNYK-JS-SEMVER-3247795:
+  #   - '*':
+  #     reason: "False positive or accepted risk"
+  #     expires: '2024-12-31T23:59:59.999Z'
+
+# Patch rules (automatically applied fixes)
+patches: {}
+
+# Ignore development dependencies in production scans
+devDependencies:
+  ignore: false  # Set to true if you want to ignore dev deps in production scans
+
