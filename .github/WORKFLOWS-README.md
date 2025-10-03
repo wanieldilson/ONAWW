@@ -67,6 +67,35 @@
 
 ---
 
+## 🤖 Dependabot Configuration
+
+### **Auto-Updates** (`dependabot.yml`) ✅ **CONFIGURED**
+**What it does**:
+- Automatically creates PRs for dependency updates
+- Monitors 5 package ecosystems:
+  - 📦 Backend npm packages
+  - 📦 Frontend npm packages  
+  - 📦 Root npm packages
+  - 🔧 GitHub Actions versions
+  - 🐳 Docker base images
+
+**Schedule**: Weekly on Mondays at 9 AM UTC
+
+**Features**:
+- **Grouped updates**: Patch updates, type definitions, React ecosystem, testing deps, build tools
+- **Smart limits**: Max 5 PRs per ecosystem to avoid spam
+- **Auto-labeling**: Proper labels for easy filtering
+- **Conventional commits**: Follows commit message conventions
+- **Auto-reviewers**: Assigns repository owner
+
+**Benefits**:
+- ✅ Keeps dependencies up-to-date automatically
+- ✅ Reduces security vulnerabilities
+- ✅ Groups related updates to reduce PR noise
+- ✅ Zero configuration needed - works out of the box
+
+---
+
 ## 🔧 Common Fixes Applied
 
 All workflows were updated to fix:
@@ -74,6 +103,7 @@ All workflows were updated to fix:
 2. ❌ **Changed** `npm ci` → `npm install` (project uses npm install, not lock files)
 3. ✅ **Added** lint script to backend package.json
 4. ✅ **Fixed** CodeQL build step to install subdirectory dependencies first
+5. ✅ **Added** Dependabot configuration for automated dependency management
 
 ---
 
@@ -88,10 +118,16 @@ Use **`docker-publish.yml`** - Full Docker build and publish pipeline
 ### For Security-Focused Work:
 Enable **`security-scan.yml`** - Comprehensive security analysis
 
+### For Dependency Management:
+**Dependabot** is now configured and will automatically:
+- Create weekly PRs for dependency updates
+- Group related updates to reduce noise
+- Handle npm packages, GitHub Actions, and Docker updates
+
 ### Optional Enhancements:
-- **Enable Renovate** via `dependency-update.yml` for automated updates
-- **Configure Snyk** by adding `SNYK_TOKEN` secret
-- **Enable CodeQL** in `ci-cd.yml` for code analysis
+- **Configure Snyk** by adding `SNYK_TOKEN` secret for enhanced scanning
+- **Enable CodeQL** in `ci-cd.yml` for deep code analysis
+- **Add Renovate** if you prefer it over Dependabot (they can coexist)
 
 ---
 
@@ -126,11 +162,27 @@ For full functionality, configure these secrets in your GitHub repository:
 
 1. **Verify CI works**: Push a commit and watch `ci.yml` run
 2. **Test Docker publish**: Create a tag `v1.0.0` and check `docker-publish.yml`
-3. **Enable security**: Add SNYK_TOKEN and enable security workflows
-4. **Monitor**: Check Actions tab for workflow results
+3. **Dependabot**: Will automatically start creating PRs on Mondays
+4. **Enable security**: Add SNYK_TOKEN secret for enhanced Snyk scanning
+5. **Monitor**: Check Actions tab for workflow results
+
+## 📊 Dependabot PR Management
+
+**What to expect**:
+- Weekly PRs on Mondays for dependency updates
+- Grouped updates (e.g., all patch updates in one PR)
+- Clear labels for filtering (dependencies, backend, frontend, etc.)
+- Auto-assignment for review
+
+**How to manage**:
+- Review and merge security updates ASAP
+- Batch-merge grouped patch updates
+- Carefully review major version updates
+- Enable auto-merge for trusted dependencies
 
 ---
 
 **Last Updated**: October 3, 2025  
-**Status**: ✅ Core workflows fixed and operational
+**Status**: ✅ Core workflows fixed and operational  
+**Dependabot**: ✅ Configured and ready
 

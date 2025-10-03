@@ -20,6 +20,7 @@ describe('GameService', () => {
       expect(room.facilitatorId).toBe(facilitatorSocketId);
       expect(room.players).toEqual([]);
       expect(room.gameStarted).toBe(false);
+      expect(room.gamePhase).toBe('day');
       expect(room.createdAt).toBeInstanceOf(Date);
     });
 
@@ -158,12 +159,30 @@ describe('GameService', () => {
       expect(players?.every(p => p.role !== undefined)).toBe(true);
     });
 
-    it('should assign werewolf and villager roles', () => {
+    it('should assign werewolf, doctor, and villager roles', () => {
       const startedRoom = gameService.startGame('facilitator-123', room.id);
       
-      const roles = startedRoom?.players.map(p => p.role);
+      // Filter out facilitator
+      const nonFacilitatorPlayers = startedRoom?.players.filter(p => p.socketId !== 'facilitator-123');
+      const roles = nonFacilitatorPlayers?.map(p => p.role);
+      
       expect(roles).toContain('werewolf');
+      expect(roles).toContain('doctor');
       expect(roles).toContain('villager');
+    });
+
+    it('should not assign role to facilitator', () => {
+      const startedRoom = gameService.startGame('facilitator-123', room.id);
+      
+      // Find facilitator in players
+      const facilitator = startedRoom?.players.find(p => p.socketId === 'facilitator-123');
+      expect(facilitator?.role).toBeUndefined();
+    });
+
+    it('should start game in day phase', () => {
+      const startedRoom = gameService.startGame('facilitator-123', room.id);
+      
+      expect(startedRoom?.gamePhase).toBe('day');
     });
 
     it('should not allow non-facilitator to start game', () => {
@@ -220,6 +239,114 @@ describe('GameService', () => {
     it('should return null for non-existent socket', () => {
       const foundRoom = gameService.findRoomBySocketId('non-existent');
       expect(foundRoom).toBeNull();
+    });
+  });
+
+  describe('changePhase', () => {
+    it('should change game phase when game is started', () => {
+      const room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
+      gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
+      gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
+      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
+      gameService.startGame('facilitator-123', room.id);
+
+      const updatedRoom = gameService.changePhase('facilitator-123', room.id, 'night');
+      
+      expect(updatedRoom).toBeDefined();
+      expect(updatedRoom?.gamePhase).toBe('night');
+    });
+
+    it('should not allow non-facilitator to change phase', () => {
+      const room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
+      gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
+      gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
+      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
+      gameService.startGame('facilitator-123', room.id);
+
+      const updatedRoom = gameService.changePhase('socket-1', room.id, 'night');
+      
+      expect(updatedRoom).toBeNull();
+    });
+
+    it('should not change phase if game not started', () => {
+      const room = gameService.createRoom('facilitator-123');
+
+      const updatedRoom = gameService.changePhase('facilitator-123', room.id, 'night');
+      
+      expect(updatedRoom).toBeNull();
+    });
+  });
+
+  describe('killPlayer and revivePlayer', () => {
+    let room: GameRoom;
+
+    beforeEach(() => {
+      room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
+      gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
+      gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
+      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
+      gameService.startGame('facilitator-123', room.id);
+    });
+
+    it('should kill a player', () => {
+      const player = room.players[0];
+      const updatedRoom = gameService.killPlayer('facilitator-123', room.id, player.id);
+      
+      expect(updatedRoom).toBeDefined();
+      const killedPlayer = updatedRoom?.players.find(p => p.id === player.id);
+      expect(killedPlayer?.isDead).toBe(true);
+    });
+
+    it('should revive a dead player', () => {
+      const player = room.players[0];
+      gameService.killPlayer('facilitator-123', room.id, player.id);
+      
+      const updatedRoom = gameService.revivePlayer('facilitator-123', room.id, player.id);
+      
+      expect(updatedRoom).toBeDefined();
+      const revivedPlayer = updatedRoom?.players.find(p => p.id === player.id);
+      expect(revivedPlayer?.isDead).toBe(false);
+    });
+
+    it('should not allow non-facilitator to kill player', () => {
+      const player = room.players[0];
+      const updatedRoom = gameService.killPlayer('socket-1', room.id, player.id);
+      
+      expect(updatedRoom).toBeNull();
+    });
+
+    it('should not kill player in non-started game', () => {
+      const newRoom = gameService.createRoom('facilitator-456');
+      const player = gameService.addPlayerToRoom(newRoom, 'Player1', 'socket-5');
+      
+      const updatedRoom = gameService.killPlayer('facilitator-456', newRoom.id, player.id);
+      
+      expect(updatedRoom).toBeNull();
+    });
+  });
+
+  describe('getWerewolves', () => {
+    it('should return all werewolves in a room', () => {
+      const room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
+      gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
+      gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
+      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
+      gameService.startGame('facilitator-123', room.id);
+
+      const werewolves = gameService.getWerewolves(room.id);
+      
+      expect(werewolves.length).toBeGreaterThan(0);
+      expect(werewolves.every(w => w.role === 'werewolf')).toBe(true);
+    });
+
+    it('should return empty array for non-existent room', () => {
+      const werewolves = gameService.getWerewolves('non-existent');
+      
+      expect(werewolves).toEqual([]);
     });
   });
 
