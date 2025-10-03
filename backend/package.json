@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "test": "jest",
     "test:watch": "jest --watch",
+    "lint": "echo 'No linting configured for backend'",
     "security:audit": "npm audit --audit-level=moderate",
     "security:fix": "npm audit fix",
     "security:snyk": "snyk test",

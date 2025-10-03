@@ -24,19 +24,15 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: |
-          backend/package-lock.json
-          frontend/package-lock.json
 
     - name: Install root dependencies
       run: npm install
 
     - name: Install backend dependencies
-      run: cd backend && npm ci
+      run: cd backend && npm install
 
     - name: Install frontend dependencies
-      run: cd frontend && npm ci
+      run: cd frontend && npm install
 
     - name: Run backend tests
       run: cd backend && npm test
@@ -64,16 +60,12 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: |
-          backend/package-lock.json
-          frontend/package-lock.json
 
     - name: Install dependencies
       run: |
         npm install
-        cd backend && npm ci
-        cd ../frontend && npm ci
+        cd backend && npm install
+        cd ../frontend && npm install
 
     - name: Run npm audit (backend)
       run: cd backend && npm audit --audit-level moderate
@@ -235,12 +227,15 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
 
-    - name: Install and build
+    - name: Install dependencies
       run: |
         npm install
-        npm run build
+        cd backend && npm install
+        cd ../frontend && npm install
+
+    - name: Build project
+      run: npm run build
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
