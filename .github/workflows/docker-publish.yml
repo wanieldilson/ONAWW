@@ -1,57 +1,32 @@
-name: Docker Build and Publish
+name: Docker Publish
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - 'v*'
-  
-  # Allow manual triggering
+    branches: [ main ]
+    tags: [ 'v*' ]
   workflow_dispatch:
-    inputs:
-      push_to_registry:
-        description: 'Push to registry'
-        required: true
-        default: true
-        type: boolean
-      platforms:
-        description: 'Target platforms'
-        required: true
-        default: 'linux/amd64,linux/arm64'
-        type: string
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-publish:
-    name: Build and Publish Docker Image
+  publish:
+    name: Build and Publish
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     
     permissions:
       contents: read
       packages: write
-      security-events: write
-      id-token: write  # for OIDC
-      attestations: write  # for provenance
-
-    outputs:
-      image-digest: ${{ steps.build.outputs.digest }}
-      image-url: ${{ steps.build.outputs.image-url }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v5
+    - uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
+    - name: Setup Docker Buildx
       uses: docker/setup-buildx-action@v3
-      with:
-        platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
 
-    - name: Log in to Container Registry
-      if: github.event_name != 'pull_request' && (github.event.inputs.push_to_registry == 'true' || github.event.inputs.push_to_registry == '')
+    - name: Login to GitHub Container Registry
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
@@ -65,173 +40,29 @@ jobs:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
           type=ref,event=branch
-          type=ref,event=pr
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
-          type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
-        labels: |
-          org.opencontainers.image.title=One Night a Werewolf
-          org.opencontainers.image.description=Browser-based multiplayer werewolf game
-          org.opencontainers.image.vendor=ONAWW Team
-          org.opencontainers.image.licenses=MIT
 
-    - name: Build and push Docker image
-      id: build
-      uses: docker/build-push-action@v6
+    - name: Build and push
+      uses: docker/build-push-action@v5
       with:
         context: .
-        file: ./Dockerfile
-        push: ${{ github.event_name != 'pull_request' && (github.event.inputs.push_to_registry == 'true' || github.event.inputs.push_to_registry == '') }}
+        push: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
-        provenance: true
-        sbom: true
-        annotations: |
-          org.opencontainers.image.title=One Night a Werewolf
-          org.opencontainers.image.description=Browser-based multiplayer werewolf game
 
-    - name: Generate SBOM
-      if: github.event_name != 'pull_request'
-      uses: anchore/sbom-action@v0
-      with:
-        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}
-        format: spdx-json
-        output-file: sbom.spdx.json
-
-    - name: Upload SBOM
-      if: github.event_name != 'pull_request'
-      uses: actions/upload-artifact@v4
-      with:
-        name: sbom-${{ github.sha }}
-        path: sbom.spdx.json
-
-    - name: Generate provenance attestation
-      if: github.event_name != 'pull_request'
-      uses: actions/attest-build-provenance@v1
-      with:
-        subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        subject-digest: ${{ steps.build.outputs.digest }}
-        push-to-registry: true
-
-  security-scan:
-    name: Security Scan Published Image
-    runs-on: ubuntu-latest
-    needs: build-and-publish
-    if: github.event_name != 'pull_request'
-    
-    permissions:
-      security-events: write
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v5
-
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-publish.outputs.image-digest }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        severity: 'HIGH,CRITICAL'
-
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-
-    - name: Run Grype vulnerability scanner
-      uses: anchore/scan-action@v3
-      with:
-        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-publish.outputs.image-digest }}
-        fail-build: false
-        severity-cutoff: high
-        output-format: sarif
-        output-file: grype-results.sarif
-
-    - name: Upload Grype scan results
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: grype-results.sarif
-
-  # deploy-staging:
-  #   name: Deploy to Staging
-  #   runs-on: ubuntu-latest
-  #   needs: [build-and-publish, security-scan]
-  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-  #   environment:
-  #     name: staging
-  #     url: ${{ steps.deploy.outputs.url }}
-  #   
-  #   steps:
-  #   - name: Checkout code
-  #     uses: actions/checkout@v5
-  #
-  #   - name: Deploy to staging environment
-  #     id: deploy
-  #     run: |
-  #       echo "🚀 Deploying to staging environment..."
-  #       echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-publish.outputs.image-digest }}"
-  #       # Add your staging deployment logic here
-  #       
-  #       # Example placeholder for actual deployment
-  #       echo "url=https://staging.onaww.example.com" >> $GITHUB_OUTPUT
-  #       echo "✅ Deployment completed"
-
-  image-signing:
-    name: Sign Container Image
-    runs-on: ubuntu-latest
-    needs: [build-and-publish, security-scan]
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-
-    steps:
-    - name: Install Cosign
-      uses: sigstore/cosign-installer@v3
-
-    - name: Log in to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Sign container image
+    - name: Summary
       run: |
-        echo "Signing image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-publish.outputs.image-digest }}"
-        cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-publish.outputs.image-digest }}
-
-  notification:
-    name: Build Summary
-    runs-on: ubuntu-latest
-    needs: [build-and-publish]
-    if: always() && github.event_name != 'pull_request'
-    
-    steps:
-    - name: Create deployment summary
-      run: |
-        echo "## 🐺 One Night a Werewolf Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "## 🐺 Docker Image Published" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Image Details" >> $GITHUB_STEP_SUMMARY
-        echo "- **Registry**: ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Repository**: ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Digest**: ${{ needs.build-and-publish.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Platforms**: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Registry**: \`${{ env.REGISTRY }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Image**: \`${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Tags**: \`${{ steps.meta.outputs.tags }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Build Status" >> $GITHUB_STEP_SUMMARY
-        echo "- Build: ${{ needs.build-and-publish.result == 'success' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Docker Image Usage" >> $GITHUB_STEP_SUMMARY
+        echo "### Pull and run:" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
         echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
         echo "docker run -p 3001:3001 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY

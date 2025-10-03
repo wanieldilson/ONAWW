@@ -12,7 +12,7 @@ COPY .npmrc* ./
 # Configure npm registry and install frontend dependencies
 ARG NPM_REGISTRY
 RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry $NPM_REGISTRY; fi
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy frontend source code and security config
 COPY frontend/ ./
@@ -39,7 +39,7 @@ COPY .npmrc* ./
 # Configure npm registry and install all dependencies (including devDependencies for building)
 ARG NPM_REGISTRY
 RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry $NPM_REGISTRY; fi
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # Copy backend source code and security config
 COPY backend/ ./
@@ -72,7 +72,7 @@ COPY backend/package*.json ./
 COPY .npmrc* ./
 ARG NPM_REGISTRY
 RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry $NPM_REGISTRY; fi
-RUN npm install --omit=dev && npm cache clean --force
+RUN npm install --omit=dev --legacy-peer-deps && npm cache clean --force
 
 # Copy built backend from builder stage
 COPY --from=backend-builder /app/backend/dist ./dist
