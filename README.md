@@ -4,12 +4,25 @@ A real-time, browser-based multiplayer implementation of the popular social dedu
 
 ## 🎮 Game Features
 
+### Core Gameplay
 - **Real-time multiplayer** - Play with friends using WebSocket connections
+- **Smart role assignment** - 4-5 players = 1 werewolf, 6+ players = 2 werewolves
+- **Day/Night phases** - Dynamic game phases with sun ☀️ and moon 🌙 icons
+- **Werewolf coordination** - Private werewolf chat during night phase
+- **Facilitator oversight** - Game creator can observe and control the game
+
+### User Experience
 - **Werewolf-themed UI** - Dark, atmospheric interface with medieval styling
-- **Role assignment** - Automatic role distribution (Villagers & Werewolves)
-- **Game lobby system** - Wait for players before starting
-- **Facilitator controls** - Game creator manages the session
 - **Password-protected rooms** - Share a 6-letter code to join games
+- **Player status tracking** - See your own name and role clearly
+- **Death system** - Visual skull indicators for eliminated players
+- **Observer mode** - Dead players can still watch the game unfold
+
+### Facilitator Powers
+- **Phase control** - Switch between day and night phases
+- **Player management** - Kill/revive players with visual buttons
+- **Role visibility** - See all player roles (werewolves 🐺 and villagers 👤)
+- **Chat monitoring** - Observe werewolf coordination without participating
 
 ## 🚀 Quick Start
 
@@ -24,7 +37,6 @@ A real-time, browser-based multiplayer implementation of the popular social dedu
 2. **Build and run with Docker**
    ```bash
    docker build -t onaww .
-   docker run -p 3001:3001 onaww
    ```
 
 3. **Or use Docker Compose**
@@ -61,24 +73,77 @@ The backend runs on `http://localhost:3001` and the frontend on `http://localhos
 
 ## 🎯 How to Play
 
-1. **Start a Game**
-   - Click "Start New Game" to create a room
-   - Share the 6-letter password with your friends
+### Getting Started
 
-2. **Join a Game**
+1. **Create a Game** (Become the Facilitator)
+   - Click "Start New Game" to create a room
+   - Enter your player name when prompted
+   - Share the 6-letter password with your friends
+   - You become the facilitator with special powers
+
+2. **Join a Game** (Become a Player)
    - Click "Join Existing Game"
-   - Enter the password and your player name
+   - Enter the room password and your player name
    - Wait in the lobby for the facilitator to start
 
-3. **Game Begins**
-   - Minimum 3 players required
-   - Each player is secretly assigned a role:
-     - **🐺 Werewolf**: Know who the other werewolves are
-     - **👤 Villager**: Work together to identify werewolves
+### Game Setup
 
-4. **Discussion Phase**
-   - Players discuss and try to identify the werewolves
-   - Use your role knowledge and deduction skills
+3. **Lobby Phase**
+   - Minimum **4 players** required (facilitator + 3 players)
+   - Facilitator sees a "Start Game" button when ready
+   - Players see "Waiting for facilitator to start the game..."
+
+4. **Role Assignment** (Automatic)
+   - **4-5 total players**: 1 werewolf assigned
+   - **6+ total players**: 2 werewolves assigned
+   - **Facilitator**: Gets no role, manages the game
+   - **Other players**: Become villagers or werewolves
+
+### Game Flow
+
+5. **Day Phase** ☀️ (Game starts here)
+   - All players can discuss openly
+   - Try to identify who the werewolves might be
+   - **Facilitator**: Can switch to night phase when ready
+
+6. **Night Phase** 🌙
+   - **Werewolves**: Can chat privately to coordinate
+   - **Villagers**: Wait quietly while werewolves plan
+   - **Facilitator**: Can observe werewolf chat and switch back to day
+
+### Player Roles
+
+- **👑 Facilitator**
+  - Controls day/night phases
+  - Can see all player roles
+  - Can kill/revive players during the game
+  - Observes werewolf chat but cannot participate
+
+- **🐺 Werewolf** 
+  - Know who the other werewolves are
+  - Can chat privately with other werewolves during night
+  - Goal: Eliminate villagers and avoid detection
+
+- **👤 Villager**
+  - Don't know who anyone else is
+  - Must work together to identify werewolves
+  - Goal: Identify and eliminate all werewolves
+
+### Death System
+
+7. **Player Elimination**
+   - **Facilitator** can click 💀 to kill players
+   - **Dead players** see skull 💀 and "You have been killed"
+   - **Dead players** can still observe but cannot participate
+   - **Facilitator** can click 🔄 to revive dead players
+
+### Special Features
+
+- **Real-time updates**: All actions happen instantly for all players
+- **Phase indicators**: Clear visual cues for day ☀️ vs night 🌙
+- **Role visibility**: Facilitator sees everyone's roles, werewolves see each other
+- **Chat system**: Private werewolf coordination during night phase
+- **Observer mode**: Dead players and facilitator can watch without affecting gameplay
 
 ## 🏗️ Architecture
 
@@ -217,12 +282,17 @@ The application uses a custom werewolf theme defined in `frontend/src/index.css`
 - Moon-glow effects
 
 ### Game Rules
-Modify role assignment logic in `backend/src/services/gameService.ts`:
+Current role assignment logic in `backend/src/services/gameService.ts`:
 ```typescript
 private assignRoles(room: GameRoom): void {
-  // Customize werewolf-to-villager ratio
-  const werewolfCount = Math.max(1, Math.floor(players.length / 3));
-  // Add special roles, etc.
+  // Filter out facilitator from role assignment
+  const playersToAssign = room.players.filter(player => player.socketId !== room.facilitatorId);
+  
+  // Determine werewolf count: 4-5 players = 1 werewolf, 6+ players = 2 werewolves
+  const werewolfCount = playersToAssign.length >= 5 ? 2 : 1;
+  
+  // Randomly assign werewolf and villager roles
+  // Facilitator gets no role
 }
 ```
 
@@ -242,17 +312,33 @@ MIT License - see LICENSE file for details.
 ## 🐛 Known Issues
 
 - Game rooms are stored in memory (will reset on server restart)
-- No persistent user accounts
-- Limited to basic Villager/Werewolf roles
+- No persistent user accounts  
+- No voting system implemented yet
+- No win/lose conditions implemented yet
 
 ## 🔮 Future Enhancements
 
-- [ ] Additional special roles (Seer, Robber, etc.)
-- [ ] Persistent game history
-- [ ] User accounts and statistics  
+### Gameplay
+- [ ] Voting system for player elimination
+- [ ] Win/lose conditions and game end detection
+- [ ] Additional special roles (Seer, Robber, Troublemaker, etc.)
+- [ ] Timed phases with automatic progression
+- [ ] Multiple game rounds
+
+### Features  
+- [ ] Persistent game history and statistics
+- [ ] User accounts and player profiles
 - [ ] Voice chat integration
 - [ ] Mobile app versions
-- [ ] Tournament mode
+- [ ] Tournament and league modes
+- [ ] Spectator mode for non-players
+- [ ] Game replay system
+
+### Technical
+- [ ] Database persistence for game state
+- [ ] Reconnection handling for dropped connections
+- [ ] Room size limits and player management
+- [ ] Advanced anti-cheat measures
 
 ---
 
