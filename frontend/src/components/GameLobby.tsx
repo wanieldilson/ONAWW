@@ -33,7 +33,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onBack }) => {
 
   const isFacilitator = state.currentRoom?.isPlayerFacilitator;
   const playerCount = state.currentRoom?.players?.length || 0;
-  const minPlayers = 3;
+  const minPlayers = 4;
   const canStart = isFacilitator && playerCount >= minPlayers && !state.gameStarted;
 
   return (
@@ -121,6 +121,7 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onBack }) => {
             <li>• Minimum {minPlayers} players needed to start</li>
             <li>• Each player gets a secret role: Villager or Werewolf</li>
             <li>• Werewolves know each other, villagers don't</li>
+            <li>• The facilitator guides the game but doesn't play</li>
             <li>• Work together to identify the werewolves!</li>
           </ul>
         </div>
@@ -186,19 +187,23 @@ const GameLobby: React.FC<GameLobbyProps> = ({ onBack }) => {
         )}
 
         {/* Player Role Display (shown after game starts) */}
-        {state.gameStarted && state.playerRole && (
+        {state.gameStarted && (
           <div className="mt-6 text-center">
             <div className="werewolf-card p-6">
               <h3 className="text-2xl font-bold text-werewolf-moon mb-4">Your Role</h3>
               <div className={`text-4xl font-bold mb-2 ${
+                isFacilitator ? 'text-yellow-400' : 
                 state.playerRole === 'werewolf' ? 'role-werewolf' : 'role-villager'
               }`}>
-                {state.playerRole === 'werewolf' ? '🐺 WEREWOLF' : '👤 VILLAGER'}
+                {isFacilitator ? '👑 FACILITATOR' :
+                 state.playerRole === 'werewolf' ? '🐺 WEREWOLF' : '👤 VILLAGER'}
               </div>
               <p className="text-werewolf-moon/80 text-sm">
-                {state.playerRole === 'werewolf' 
-                  ? "You are a werewolf! Find your allies and deceive the villagers."
-                  : "You are a villager! Work with others to identify the werewolves."
+                {isFacilitator 
+                  ? "You are the facilitator! Control the game phases and guide the players."
+                  : state.playerRole === 'werewolf' 
+                    ? "You are a werewolf! Find your allies and deceive the villagers."
+                    : "You are a villager! Work with others to identify the werewolves."
                 }
               </p>
             </div>

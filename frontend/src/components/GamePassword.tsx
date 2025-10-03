@@ -7,8 +7,10 @@ interface GamePasswordProps {
 }
 
 const GamePassword: React.FC<GamePasswordProps> = ({ onContinue, onBack }) => {
-  const { state } = useGame();
+  const { state, joinRoom, clearError } = useGame();
   const [copied, setCopied] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
 
   const copyToClipboard = async () => {
     if (state.currentRoom?.password) {
@@ -32,6 +34,25 @@ const GamePassword: React.FC<GamePasswordProps> = ({ onContinue, onBack }) => {
   };
 
   const shareText = `Join my One Night a Werewolf game! Password: ${state.currentRoom?.password}`;
+
+  const handleContinue = async () => {
+    if (!playerName.trim() || !state.currentRoom?.password) return;
+    
+    setIsJoining(true);
+    clearError();
+    
+    try {
+      // Join the room as a player with the entered name
+      await joinRoom(state.currentRoom.password, playerName.trim());
+      if (!state.error) {
+        onContinue();
+      }
+    } catch (error) {
+      console.error('Error joining room:', error);
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -69,6 +90,13 @@ const GamePassword: React.FC<GamePasswordProps> = ({ onContinue, onBack }) => {
         <h2 className="text-3xl font-bold text-werewolf-moon mb-2">Game Created!</h2>
         <p className="text-werewolf-moon/80 mb-8">Share this password with your friends</p>
 
+        {/* Error Display */}
+        {state.error && (
+          <div className="error-message mb-6">
+            <p>❌ {state.error}</p>
+          </div>
+        )}
+
         {/* Password Display */}
         <div className="bg-werewolf-dark/60 rounded-xl p-6 mb-6">
           <p className="text-werewolf-moon/80 mb-2">Game Password:</p>
@@ -84,7 +112,7 @@ const GamePassword: React.FC<GamePasswordProps> = ({ onContinue, onBack }) => {
               {copied ? '✓ Copied!' : '📋 Copy Password'}
             </button>
             
-            {navigator.share && (
+            {'share' in navigator && (
               <button
                 onClick={handleShare}
                 className="werewolf-button flex-1 py-2 text-sm 
@@ -117,12 +145,39 @@ const GamePassword: React.FC<GamePasswordProps> = ({ onContinue, onBack }) => {
           </ol>
         </div>
 
+        {/* Player Name Input */}
+        <div className="bg-werewolf-dark/30 rounded-lg p-4 mb-6">
+          <label htmlFor="playerName" className="block text-werewolf-moon font-medium mb-3">
+            Enter Your Player Name:
+          </label>
+          <input
+            id="playerName"
+            type="text"
+            value={playerName}
+            onChange={(e) => setPlayerName(e.target.value.slice(0, 20))}
+            placeholder="Your name (max 20 characters)"
+            className="w-full px-4 py-3 rounded-lg bg-werewolf-dark/60 border border-werewolf-moon/30 
+                     text-werewolf-moon placeholder-werewolf-moon/50 focus:border-werewolf-moon/70 
+                     focus:outline-none focus:ring-2 focus:ring-werewolf-moon/30 text-center font-medium"
+            maxLength={20}
+            autoComplete="off"
+          />
+        </div>
+
         {/* Continue Button */}
         <button
-          onClick={onContinue}
-          className="werewolf-button w-full text-lg py-4"
+          onClick={handleContinue}
+          disabled={!playerName.trim() || isJoining}
+          className="werewolf-button w-full text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          🚪 Enter Game Lobby
+          {isJoining ? (
+            <div className="flex items-center justify-center">
+              <div className="animate-spin w-5 h-5 border-2 border-werewolf-moon border-t-transparent rounded-full mr-2"></div>
+              Joining Lobby...
+            </div>
+          ) : (
+            '🚪 Enter Game Lobby'
+          )}
         </button>
 
         {/* Warning */}

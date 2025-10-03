@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import { GameEvents, JoinRoomData, CreateRoomResponse, JoinRoomResponse, StartGameResponse } from '../types/game';
+import { GameEvents, JoinRoomData, CreateRoomResponse, JoinRoomResponse, StartGameResponse, GamePhase } from '../types/game';
 
 class SocketService {
   private socket: Socket | null = null;
@@ -116,6 +116,44 @@ class SocketService {
 
   isConnected(): boolean {
     return this.socket?.connected || false;
+  }
+
+  changePhase(phase: GamePhase): Promise<{ success: boolean; phase?: GamePhase; error?: { message: string } }> {
+    return new Promise((resolve) => {
+      if (!this.socket) {
+        resolve({ success: false, error: { message: 'Not connected to server' } });
+        return;
+      }
+
+      this.socket.emit(GameEvents.CHANGE_PHASE, { phase }, (response: any) => {
+        resolve(response);
+      });
+    });
+  }
+
+  sendWerewolfMessage(message: string): Promise<{ success: boolean; error?: { message: string } }> {
+    return new Promise((resolve) => {
+      if (!this.socket) {
+        resolve({ success: false, error: { message: 'Not connected to server' } });
+        return;
+      }
+
+      this.socket.emit(GameEvents.WEREWOLF_CHAT, { message }, (response: any) => {
+        resolve(response);
+      });
+    });
+  }
+
+  onPhaseChanged(callback: (data: { phase: GamePhase; message: string }) => void): void {
+    if (this.socket) {
+      this.socket.on(GameEvents.PHASE_CHANGED, callback);
+    }
+  }
+
+  onWerewolfMessage(callback: (data: { playerId: string; playerName: string; message: string; timestamp: string }) => void): void {
+    if (this.socket) {
+      this.socket.on(GameEvents.WEREWOLF_MESSAGE, callback);
+    }
   }
 
   getSocket(): Socket | null {

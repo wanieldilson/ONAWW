@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { GameProvider, useGame } from './context/GameContext';
 import LandingPage from './components/LandingPage';
 import JoinGame from './components/JoinGame';
 import GamePassword from './components/GamePassword';
 import GameLobby from './components/GameLobby';
+import GameBoard from './components/GameBoard';
 import './index.css';
 
-type AppState = 'landing' | 'join' | 'password' | 'lobby';
+type AppState = 'landing' | 'join' | 'password' | 'lobby' | 'game';
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<AppState>('landing');
@@ -14,10 +15,17 @@ function AppContent() {
 
   // Auto-navigate to lobby when successfully joined/created a room
   useEffect(() => {
-    if (state.currentRoom && currentView !== 'password' && currentView !== 'lobby') {
+    if (state.currentRoom && currentView !== 'password' && currentView !== 'lobby' && currentView !== 'game') {
       setCurrentView('lobby');
     }
   }, [state.currentRoom, currentView]);
+
+  // Auto-navigate to game board when game starts
+  useEffect(() => {
+    if (state.gameStarted && currentView !== 'game') {
+      setCurrentView('game');
+    }
+  }, [state.gameStarted, currentView]);
 
   const handleStartGame = async () => {
     clearError();
@@ -59,6 +67,12 @@ function AppContent() {
       case 'lobby':
         return (
           <GameLobby 
+            onBack={handleBackToLanding}
+          />
+        );
+      case 'game':
+        return (
+          <GameBoard 
             onBack={handleBackToLanding}
           />
         );

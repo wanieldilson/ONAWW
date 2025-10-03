@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { GameService } from '../services/gameService';
-import { GameEvents, JoinRoomData, GameError } from '../types/game';
+import { GameEvents, JoinRoomData, GameError, GamePhase } from '../types/game';
 
 export class SocketHandlers {
   private gameService: GameService;
@@ -27,8 +27,10 @@ export class SocketHandlers {
             id: room.id,
             password: room.password,
             facilitatorId: room.facilitatorId,
-            players: room.players,
-            gameStarted: room.gameStarted
+            players: room.players.map(p => ({ id: p.id, name: p.name })),
+            gameStarted: room.gameStarted,
+            gamePhase: room.gamePhase,
+            isPlayerFacilitator: true // Creator is always the facilitator
           }
         });
       } catch (error) {
@@ -91,6 +93,7 @@ export class SocketHandlers {
             facilitatorId: room.facilitatorId,
             players: room.players.map(p => ({ id: p.id, name: p.name })),
             gameStarted: room.gameStarted,
+            gamePhase: room.gamePhase,
             isPlayerFacilitator: room.facilitatorId === socket.id
           },
           player: { id: player.id, name: player.name }
@@ -125,10 +128,10 @@ export class SocketHandlers {
           return;
         }
 
-        if (room.players.length < 3) {
+        if (room.players.length < 4) {
           callback({
             success: false,
-            error: { message: 'Need at least 3 players to start the game' }
+            error: { message: 'Need at least 4 players to start the game' }
           });
           return;
         }
@@ -169,6 +172,132 @@ export class SocketHandlers {
         callback({
           success: false,
           error: { message: error instanceof Error ? error.message : 'Failed to start game' }
+        });
+      }
+    });
+
+    // Handle phase changes
+    socket.on(GameEvents.CHANGE_PHASE, (data: { phase: GamePhase }, callback) => {
+      try {
+        const room = this.gameService.findRoomBySocketId(socket.id);
+        
+        if (!room) {
+          callback({
+            success: false,
+            error: { message: 'Room not found' }
+          });
+          return;
+        }
+
+        if (!this.gameService.isFacilitator(socket.id, room.id)) {
+          callback({
+            success: false,
+            error: { message: 'Only the facilitator can change game phase' }
+          });
+          return;
+        }
+
+        if (!room.gameStarted) {
+          callback({
+            success: false,
+            error: { message: 'Game must be started to change phases' }
+          });
+          return;
+        }
+
+        const updatedRoom = this.gameService.changePhase(socket.id, room.id, data.phase);
+        
+        if (!updatedRoom) {
+          callback({
+            success: false,
+            error: { message: 'Failed to change phase' }
+          });
+          return;
+        }
+
+        console.log(`Phase changed to ${data.phase} in room ${room.password}`);
+
+        // Notify all players about the phase change
+        this.io.to(room.id).emit(GameEvents.PHASE_CHANGED, {
+          phase: data.phase,
+          message: data.phase === 'night' 
+            ? 'Night has fallen... Werewolves, choose your target.' 
+            : 'Dawn breaks! Discuss who might be the werewolf.'
+        });
+
+        callback({
+          success: true,
+          phase: data.phase
+        });
+
+      } catch (error) {
+        console.error('Error changing phase:', error);
+        callback({
+          success: false,
+          error: { message: 'Failed to change phase' }
+        });
+      }
+    });
+
+    // Handle werewolf chat
+    socket.on(GameEvents.WEREWOLF_CHAT, (data: { message: string }, callback) => {
+      try {
+        const room = this.gameService.findRoomBySocketId(socket.id);
+        
+        if (!room || !room.gameStarted) {
+          callback({
+            success: false,
+            error: { message: 'Game not found or not started' }
+          });
+          return;
+        }
+
+        // Find the player
+        const player = room.players.find(p => p.socketId === socket.id);
+        if (!player || player.role !== 'werewolf' || room.facilitatorId === socket.id) {
+          callback({
+            success: false,
+            error: { message: 'Only werewolves can use this chat' }
+          });
+          return;
+        }
+
+        if (room.gamePhase !== 'night') {
+          callback({
+            success: false,
+            error: { message: 'Werewolf chat is only available during night phase' }
+          });
+          return;
+        }
+
+        // Send message to all werewolves and the facilitator
+        const werewolves = this.gameService.getWerewolves(room.id);
+        const recipients = [...werewolves];
+        
+        // Add facilitator to recipients if they're not already a werewolf
+        const facilitatorPlayer = room.players.find(p => p.socketId === room.facilitatorId);
+        if (facilitatorPlayer && !werewolves.includes(facilitatorPlayer)) {
+          recipients.push(facilitatorPlayer);
+        }
+
+        recipients.forEach(recipient => {
+          this.io.to(recipient.socketId).emit(GameEvents.WEREWOLF_MESSAGE, {
+            playerId: player.id,
+            playerName: player.name,
+            message: data.message,
+            timestamp: new Date().toISOString()
+          });
+        });
+
+        callback({
+          success: true
+        });
+
+      } catch (error) {
+        console.error('Error handling werewolf chat:', error);
+        callback({
+          success: false,
+          error: { message: 'Failed to send message' }
         });
       }
     });

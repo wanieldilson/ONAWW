@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { GameRoom, Player, Role, GameState } from '../types/game';
+import { GameRoom, Player, Role, GameState, GamePhase } from '../types/game';
 
 export class GameService {
   private gameState: GameState;
@@ -30,6 +30,7 @@ export class GameService {
       facilitatorId: facilitatorSocketId,
       players: [],
       gameStarted: false,
+      gamePhase: 'day',
       createdAt: new Date()
     };
 
@@ -97,44 +98,50 @@ export class GameService {
       return null;
     }
 
-    if (room.players.length < 3) {
-      throw new Error('Need at least 3 players to start the game');
+    if (room.players.length < 4) {
+      throw new Error('Need at least 4 players to start the game');
     }
 
     // Assign roles
     this.assignRoles(room);
     
     room.gameStarted = true;
+    room.gamePhase = 'day'; // Start with day phase
     this.gameState.rooms.set(roomId, room);
     
     return room;
   }
 
   /**
-   * Assign roles to players (simplified version)
-   * In a real One Night Ultimate Werewolf, there would be more complex role assignment
+   * Assign roles to players
+   * 4-5 players = 1 werewolf
+   * 6+ players = 2 werewolves
+   * Facilitator does not get a role
    */
   private assignRoles(room: GameRoom): void {
-    const players = [...room.players];
+    // Filter out facilitator from role assignment
+    const playersToAssign = room.players.filter(player => player.socketId !== room.facilitatorId);
     
-    // For simplicity, assign 1 werewolf for every 3-4 players
-    const werewolfCount = Math.max(1, Math.floor(players.length / 3));
+    // Determine werewolf count based on non-facilitator player count
+    const werewolfCount = playersToAssign.length >= 5 ? 2 : 1;
     
-    // Shuffle players
-    for (let i = players.length - 1; i > 0; i--) {
+    // Shuffle players (excluding facilitator)
+    for (let i = playersToAssign.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [players[i], players[j]] = [players[j], players[i]];
+      [playersToAssign[i], playersToAssign[j]] = [playersToAssign[j], playersToAssign[i]];
     }
 
     // Assign werewolf roles
     for (let i = 0; i < werewolfCount; i++) {
-      players[i].role = 'werewolf';
+      playersToAssign[i].role = 'werewolf';
     }
 
     // Assign villager roles to the rest
-    for (let i = werewolfCount; i < players.length; i++) {
-      players[i].role = 'villager';
+    for (let i = werewolfCount; i < playersToAssign.length; i++) {
+      playersToAssign[i].role = 'villager';
     }
+
+    // Facilitator gets no role (remains undefined)
   }
 
   /**
@@ -169,6 +176,32 @@ export class GameService {
    */
   getAllRooms(): GameRoom[] {
     return Array.from(this.gameState.rooms.values());
+  }
+
+  /**
+   * Change game phase (day/night)
+   */
+  changePhase(facilitatorSocketId: string, roomId: string, newPhase: GamePhase): GameRoom | null {
+    const room = this.gameState.rooms.get(roomId);
+    
+    if (!room || room.facilitatorId !== facilitatorSocketId || !room.gameStarted) {
+      return null;
+    }
+
+    room.gamePhase = newPhase;
+    this.gameState.rooms.set(roomId, room);
+    
+    return room;
+  }
+
+  /**
+   * Get werewolves in a room
+   */
+  getWerewolves(roomId: string): Player[] {
+    const room = this.gameState.rooms.get(roomId);
+    if (!room) return [];
+    
+    return room.players.filter(player => player.role === 'werewolf');
   }
 
   /**

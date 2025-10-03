@@ -1,4 +1,5 @@
 export type Role = 'villager' | 'werewolf';
+export type GamePhase = 'day' | 'night';
 
 export interface Player {
   id: string;
@@ -12,6 +13,7 @@ export interface GameRoom {
   facilitatorId: string;
   players: Player[];
   gameStarted: boolean;
+  gamePhase: GamePhase;
   isPlayerFacilitator?: boolean;
 }
 
@@ -22,6 +24,7 @@ export interface GameState {
   error: string | null;
   gameStarted: boolean;
   playerRole: Role | null;
+  gamePhase: GamePhase;
 }
 
 export enum GameEvents {
@@ -32,6 +35,10 @@ export enum GameEvents {
   START_GAME = 'start_game',
   GAME_STARTED = 'game_started',
   ROLE_ASSIGNED = 'role_assigned',
+  CHANGE_PHASE = 'change_phase',
+  PHASE_CHANGED = 'phase_changed',
+  WEREWOLF_CHAT = 'werewolf_chat',
+  WEREWOLF_MESSAGE = 'werewolf_message',
   ERROR = 'error',
   ROOM_INFO = 'room_info'
 }

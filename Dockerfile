@@ -5,10 +5,13 @@ FROM node:18-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# Copy frontend package files
+# Copy frontend package files and npm config
 COPY frontend/package*.json ./
+COPY .npmrc* ./
 
-# Install frontend dependencies
+# Configure npm registry and install frontend dependencies
+ARG NPM_REGISTRY
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry $NPM_REGISTRY; fi
 RUN npm install
 
 # Copy frontend source code and security config
@@ -26,10 +29,13 @@ FROM node:18-alpine AS backend-builder
 
 WORKDIR /app/backend
 
-# Copy backend package files
+# Copy backend package files and npm config
 COPY backend/package*.json ./
+COPY .npmrc* ./
 
-# Install all dependencies (including devDependencies for building)
+# Configure npm registry and install all dependencies (including devDependencies for building)
+ARG NPM_REGISTRY
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry $NPM_REGISTRY; fi
 RUN npm install
 
 # Copy backend source code and security config
@@ -57,7 +63,10 @@ RUN addgroup -g 1001 -S appuser && \
 # Copy backend production dependencies
 WORKDIR /app/backend
 COPY backend/package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+COPY .npmrc* ./
+ARG NPM_REGISTRY
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry $NPM_REGISTRY; fi
+RUN npm install --omit=dev && npm cache clean --force
 
 # Copy built backend from builder stage
 COPY --from=backend-builder /app/backend/dist ./dist

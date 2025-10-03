@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { GameState, GameRoom, Player, Role } from '../types/game';
+import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { GameState, GameRoom, Player, Role, GamePhase } from '../types/game';
 import { socketService } from '../services/socketService';
 
 interface GameContextType {
@@ -8,6 +8,8 @@ interface GameContextType {
   createRoom: () => Promise<void>;
   joinRoom: (password: string, playerName: string) => Promise<void>;
   startGame: () => Promise<void>;
+  changePhase: (phase: GamePhase) => Promise<void>;
+  sendWerewolfMessage: (message: string) => Promise<void>;
   setError: (error: string | null) => void;
   clearError: () => void;
   disconnect: () => void;
@@ -20,6 +22,7 @@ type GameAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_GAME_STARTED'; payload: boolean }
   | { type: 'SET_PLAYER_ROLE'; payload: Role | null }
+  | { type: 'SET_GAME_PHASE'; payload: GamePhase }
   | { type: 'UPDATE_PLAYERS'; payload: Player[] }
   | { type: 'RESET_GAME' };
 
@@ -30,6 +33,7 @@ const initialState: GameState = {
   error: null,
   gameStarted: false,
   playerRole: null,
+  gamePhase: 'day',
 };
 
 function gameReducer(state: GameState, action: GameAction): GameState {
@@ -46,6 +50,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return { ...state, gameStarted: action.payload };
     case 'SET_PLAYER_ROLE':
       return { ...state, playerRole: action.payload };
+    case 'SET_GAME_PHASE':
+      return { ...state, gamePhase: action.payload };
     case 'UPDATE_PLAYERS':
       return {
         ...state,
@@ -88,6 +94,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     socketService.onError((error) => {
       dispatch({ type: 'SET_ERROR', payload: error.message || 'An error occurred' });
+    });
+
+    socketService.onPhaseChanged((data) => {
+      dispatch({ type: 'SET_GAME_PHASE', payload: data.phase });
     });
 
     return () => {
@@ -162,6 +172,34 @@ export function GameProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_ERROR', payload: null });
   };
 
+  const changePhase = async (phase: GamePhase): Promise<void> => {
+    try {
+      dispatch({ type: 'SET_ERROR', payload: null });
+      const response = await socketService.changePhase(phase);
+      
+      if (!response.success) {
+        dispatch({ type: 'SET_ERROR', payload: response.error?.message || 'Failed to change phase' });
+      }
+    } catch (error) {
+      console.error('Error changing phase:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to change phase' });
+    }
+  };
+
+  const sendWerewolfMessage = async (message: string): Promise<void> => {
+    try {
+      dispatch({ type: 'SET_ERROR', payload: null });
+      const response = await socketService.sendWerewolfMessage(message);
+      
+      if (!response.success) {
+        dispatch({ type: 'SET_ERROR', payload: response.error?.message || 'Failed to send message' });
+      }
+    } catch (error) {
+      console.error('Error sending werewolf message:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to send message' });
+    }
+  };
+
   const disconnect = (): void => {
     socketService.disconnect();
     dispatch({ type: 'RESET_GAME' });
@@ -174,6 +212,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     createRoom,
     joinRoom,
     startGame,
+    changePhase,
+    sendWerewolfMessage,
     setError,
     clearError,
     disconnect,

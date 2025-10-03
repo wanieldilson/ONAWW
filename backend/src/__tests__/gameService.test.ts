@@ -144,6 +144,7 @@ describe('GameService', () => {
       gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
       gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
       gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
+      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
     });
 
     it('should start game with minimum players', () => {
@@ -170,13 +171,15 @@ describe('GameService', () => {
       expect(startedRoom).toBeNull();
     });
 
-    it('should not start game with less than 3 players', () => {
+    it('should not start game with less than 4 players', () => {
       const smallRoom = gameService.createRoom('facilitator-456');
       gameService.addPlayerToRoom(smallRoom, 'Player1', 'socket-1');
+      gameService.addPlayerToRoom(smallRoom, 'Player2', 'socket-2');
+      gameService.addPlayerToRoom(smallRoom, 'Player3', 'socket-3');
 
       expect(() => {
         gameService.startGame('facilitator-456', smallRoom.id);
-      }).toThrow('Need at least 3 players to start the game');
+      }).toThrow('Need at least 4 players to start the game');
     });
 
     it('should not start already started game', () => {
