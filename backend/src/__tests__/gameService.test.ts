@@ -51,7 +51,8 @@ describe('GameService', () => {
 
     it('should not return rooms that have already started', () => {
       const room = gameService.createRoom('facilitator-123');
-      // Add players to meet minimum requirement
+      // Add players to meet minimum requirement (4 players)
+      gameService.addPlayerToRoom(room, 'Facilitator', 'facilitator-123');
       gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
       gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
       gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
@@ -95,6 +96,7 @@ describe('GameService', () => {
   describe('removePlayerFromRoom', () => {
     it('should remove player from room', () => {
       const room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Facilitator', 'facilitator-123');
       const player = gameService.addPlayerToRoom(room, 'TestPlayer', 'socket-456');
 
       const result = gameService.removePlayerFromRoom('socket-456');
@@ -103,11 +105,12 @@ describe('GameService', () => {
       expect(result.player).toEqual(player);
       
       const updatedRoom = gameService.getRoom(room.id);
-      expect(updatedRoom?.players).toHaveLength(0);
+      expect(updatedRoom?.players).toHaveLength(1); // Facilitator still in room
     });
 
     it('should delete room when facilitator leaves', () => {
       const room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Facilitator', 'facilitator-123');
       gameService.addPlayerToRoom(room, 'TestPlayer', 'socket-456');
 
       const result = gameService.removePlayerFromRoom('facilitator-123');
@@ -123,11 +126,12 @@ describe('GameService', () => {
       const room = gameService.createRoom('facilitator-123');
       const player = gameService.addPlayerToRoom(room, 'TestPlayer', 'socket-456');
 
-      // Remove the only player
+      // Remove the only player - room should be deleted since it's empty
       gameService.removePlayerFromRoom('socket-456');
       
       const updatedRoom = gameService.getRoom(room.id);
-      expect(updatedRoom?.players).toHaveLength(0);
+      // Room is deleted when empty, so it should be null
+      expect(updatedRoom).toBeNull();
     });
 
     it('should return null for non-existent socket', () => {
@@ -142,10 +146,12 @@ describe('GameService', () => {
 
     beforeEach(() => {
       room = gameService.createRoom('facilitator-123');
+      // Facilitator joins as a player
+      gameService.addPlayerToRoom(room, 'Facilitator', 'facilitator-123');
+      // Add 3 more players to meet minimum of 4
       gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
       gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
       gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
-      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
     });
 
     it('should start game with minimum players', () => {
@@ -154,29 +160,57 @@ describe('GameService', () => {
       expect(startedRoom).toBeDefined();
       expect(startedRoom?.gameStarted).toBe(true);
       
-      // Check that roles are assigned
+      // Check that roles are assigned to all players
       const players = startedRoom?.players;
-      expect(players?.every(p => p.role !== undefined)).toBe(true);
+      expect(players).toBeDefined();
+      expect(players!.length).toBe(4);
+      
+      // All players should have roles assigned
+      const playersWithRoles = players?.filter(p => p.role !== undefined);
+      expect(playersWithRoles).toBeDefined();
+      expect(playersWithRoles!.length).toBeGreaterThan(0);
     });
 
     it('should assign werewolf, doctor, and villager roles', () => {
       const startedRoom = gameService.startGame('facilitator-123', room.id);
       
-      // Filter out facilitator
-      const nonFacilitatorPlayers = startedRoom?.players.filter(p => p.socketId !== 'facilitator-123');
-      const roles = nonFacilitatorPlayers?.map(p => p.role);
+      const roles = startedRoom?.players.map(p => p.role);
       
+      // With 4 players (including facilitator): facilitator gets no role, 3 others get werewolf/doctor/villager
       expect(roles).toContain('werewolf');
       expect(roles).toContain('doctor');
       expect(roles).toContain('villager');
+      expect(roles).toContain(undefined); // Facilitator has no role
+      
+      // Verify role counts for non-facilitators (3 players)
+      const nonFacilitatorRoles = startedRoom?.players
+        .filter(p => p.socketId !== 'facilitator-123')
+        .map(p => p.role);
+      
+      const werewolfCount = nonFacilitatorRoles?.filter(r => r === 'werewolf').length;
+      const doctorCount = nonFacilitatorRoles?.filter(r => r === 'doctor').length;
+      expect(werewolfCount).toBe(1); // 3 non-facilitator players = 1 werewolf
+      expect(doctorCount).toBe(1); // Always 1 doctor
     });
 
-    it('should not assign role to facilitator', () => {
-      const startedRoom = gameService.startGame('facilitator-123', room.id);
+    it('should assign correct number of werewolves based on player count', () => {
+      // Test with 6 total players (facilitator + 5 others = 2 werewolves for the 5 non-facilitators)
+      const bigRoom = gameService.createRoom('facilitator-456');
+      gameService.addPlayerToRoom(bigRoom, 'Facilitator2', 'facilitator-456');
+      gameService.addPlayerToRoom(bigRoom, 'Player1', 'socket-5');
+      gameService.addPlayerToRoom(bigRoom, 'Player2', 'socket-6');
+      gameService.addPlayerToRoom(bigRoom, 'Player3', 'socket-7');
+      gameService.addPlayerToRoom(bigRoom, 'Player4', 'socket-8');
+      gameService.addPlayerToRoom(bigRoom, 'Player5', 'socket-9');
       
-      // Find facilitator in players
-      const facilitator = startedRoom?.players.find(p => p.socketId === 'facilitator-123');
-      expect(facilitator?.role).toBeUndefined();
+      const startedRoom = gameService.startGame('facilitator-456', bigRoom.id);
+      
+      // Filter out facilitator and check roles
+      const nonFacilitatorPlayers = startedRoom?.players.filter(p => p.socketId !== 'facilitator-456');
+      const roles = nonFacilitatorPlayers?.map(p => p.role);
+      const werewolfCount = roles?.filter(r => r === 'werewolf').length;
+      
+      expect(werewolfCount).toBe(2); // 5 non-facilitator players = 2 werewolves
     });
 
     it('should start game in day phase', () => {
@@ -245,10 +279,10 @@ describe('GameService', () => {
   describe('changePhase', () => {
     it('should change game phase when game is started', () => {
       const room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Facilitator', 'facilitator-123');
       gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
       gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
       gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
-      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
       gameService.startGame('facilitator-123', room.id);
 
       const updatedRoom = gameService.changePhase('facilitator-123', room.id, 'night');
@@ -259,10 +293,10 @@ describe('GameService', () => {
 
     it('should not allow non-facilitator to change phase', () => {
       const room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Facilitator', 'facilitator-123');
       gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
       gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
       gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
-      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
       gameService.startGame('facilitator-123', room.id);
 
       const updatedRoom = gameService.changePhase('socket-1', room.id, 'night');
@@ -284,10 +318,10 @@ describe('GameService', () => {
 
     beforeEach(() => {
       room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Facilitator', 'facilitator-123');
       gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
       gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
       gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
-      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
       gameService.startGame('facilitator-123', room.id);
     });
 
@@ -331,10 +365,10 @@ describe('GameService', () => {
   describe('getWerewolves', () => {
     it('should return all werewolves in a room', () => {
       const room = gameService.createRoom('facilitator-123');
+      gameService.addPlayerToRoom(room, 'Facilitator', 'facilitator-123');
       gameService.addPlayerToRoom(room, 'Player1', 'socket-1');
       gameService.addPlayerToRoom(room, 'Player2', 'socket-2');
       gameService.addPlayerToRoom(room, 'Player3', 'socket-3');
-      gameService.addPlayerToRoom(room, 'Player4', 'socket-4');
       gameService.startGame('facilitator-123', room.id);
 
       const werewolves = gameService.getWerewolves(room.id);

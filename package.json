@@ -24,10 +24,18 @@
     "security:fix": "cd backend && npm audit fix && cd ../frontend && npm audit fix",
     "install:all": "cd backend && npm install && cd ../frontend && npm install"
   },
-  "keywords": ["werewolf", "game", "multiplayer", "typescript"],
+  "keywords": [
+    "werewolf",
+    "game",
+    "multiplayer",
+    "typescript"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "jest": "^30.2.0"
   }
 }
