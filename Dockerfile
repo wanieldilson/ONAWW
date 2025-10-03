@@ -1,7 +1,7 @@
 # Multi-stage build for One Night a Werewolf game
 
 # Stage 1: Build the frontend
-FROM node:18-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
@@ -28,7 +28,7 @@ RUN npm run security:audit || echo "Security audit completed with warnings"
 RUN npm run build
 
 # Stage 2: Build the backend
-FROM node:18-alpine AS backend-builder
+FROM node:24-alpine AS backend-builder
 
 WORKDIR /app/backend
 
@@ -55,7 +55,7 @@ RUN npm test -- --passWithNoTests || echo "Backend tests completed"
 RUN npm run build
 
 # Stage 3: Production runtime
-FROM node:18-alpine AS production
+FROM node:24-alpine AS production
 
 WORKDIR /app
 
