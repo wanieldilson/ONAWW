@@ -272,22 +272,22 @@ export class SocketHandlers {
 
         // Send message to all werewolves and the facilitator
         const werewolves = this.gameService.getWerewolves(room.id);
-        const recipients = [...werewolves];
-        
-        // Add facilitator to recipients if they're not already a werewolf
-        const facilitatorPlayer = room.players.find(p => p.socketId === room.facilitatorId);
-        if (facilitatorPlayer && !werewolves.includes(facilitatorPlayer)) {
-          recipients.push(facilitatorPlayer);
-        }
+        const messageData = {
+          playerId: player.id,
+          playerName: player.name,
+          message: data.message,
+          timestamp: new Date().toISOString()
+        };
 
-        recipients.forEach(recipient => {
-          this.io.to(recipient.socketId).emit(GameEvents.WEREWOLF_MESSAGE, {
-            playerId: player.id,
-            playerName: player.name,
-            message: data.message,
-            timestamp: new Date().toISOString()
-          });
+        // Send to all werewolves
+        werewolves.forEach(werewolf => {
+          this.io.to(werewolf.socketId).emit(GameEvents.WEREWOLF_MESSAGE, messageData);
         });
+
+        // Send to facilitator (using facilitatorId directly)
+        this.io.to(room.facilitatorId).emit(GameEvents.WEREWOLF_MESSAGE, messageData);
+
+        console.log(`Werewolf message sent to ${werewolves.length} werewolves and facilitator ${room.facilitatorId}`);
 
         callback({
           success: true
@@ -298,6 +298,70 @@ export class SocketHandlers {
         callback({
           success: false,
           error: { message: 'Failed to send message' }
+        });
+      }
+    });
+
+    // Handle kill player
+    socket.on(GameEvents.KILL_PLAYER, (data: { playerId: string }, callback) => {
+      try {
+        const room = this.gameService.findRoomBySocketId(socket.id);
+        
+        if (!room || !room.gameStarted) {
+          callback({
+            success: false,
+            error: { message: 'Game not found or not started' }
+          });
+          return;
+        }
+
+        if (!this.gameService.isFacilitator(socket.id, room.id)) {
+          callback({
+            success: false,
+            error: { message: 'Only the facilitator can kill players' }
+          });
+          return;
+        }
+
+        const player = room.players.find(p => p.id === data.playerId);
+        const wasAlive = !player?.isDead;
+        
+        const updatedRoom = wasAlive 
+          ? this.gameService.killPlayer(socket.id, room.id, data.playerId)
+          : this.gameService.revivePlayer(socket.id, room.id, data.playerId);
+        
+        if (!updatedRoom) {
+          callback({
+            success: false,
+            error: { message: wasAlive ? 'Failed to kill player' : 'Failed to revive player' }
+          });
+          return;
+        }
+
+        const targetPlayer = updatedRoom.players.find(p => p.id === data.playerId);
+        console.log(`Player ${targetPlayer?.name} was ${wasAlive ? 'killed' : 'revived'} in room ${room.password}`);
+
+        // Notify all players about the death/revival
+        this.io.to(room.id).emit(GameEvents.PLAYER_KILLED, {
+          playerId: data.playerId,
+          playerName: targetPlayer?.name,
+          wasKilled: wasAlive,
+          players: updatedRoom.players.map(p => ({ 
+            id: p.id, 
+            name: p.name, 
+            isDead: p.isDead || false 
+          }))
+        });
+
+        callback({
+          success: true
+        });
+
+      } catch (error) {
+        console.error('Error killing player:', error);
+        callback({
+          success: false,
+          error: { message: 'Failed to kill player' }
         });
       }
     });

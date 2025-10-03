@@ -156,6 +156,25 @@ class SocketService {
     }
   }
 
+  killPlayer(playerId: string): Promise<{ success: boolean; error?: { message: string } }> {
+    return new Promise((resolve) => {
+      if (!this.socket) {
+        resolve({ success: false, error: { message: 'Not connected to server' } });
+        return;
+      }
+
+      this.socket.emit(GameEvents.KILL_PLAYER, { playerId }, (response: any) => {
+        resolve(response);
+      });
+    });
+  }
+
+  onPlayerKilled(callback: (data: { playerId: string; playerName: string; players: any[] }) => void): void {
+    if (this.socket) {
+      this.socket.on(GameEvents.PLAYER_KILLED, callback);
+    }
+  }
+
   getSocket(): Socket | null {
     return this.socket;
   }

@@ -14,7 +14,7 @@ interface WerewolfMessage {
 }
 
 const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
-  const { state, changePhase, sendWerewolfMessage, clearError, disconnect } = useGame();
+  const { state, changePhase, sendWerewolfMessage, killPlayer, clearError, disconnect } = useGame();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [werewolfMessages, setWerewolfMessages] = useState<WerewolfMessage[]>([]);
   const [werewolfInput, setWerewolfInput] = useState('');
@@ -62,6 +62,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
     setWerewolfInput('');
   };
 
+  const handleKillPlayer = async (playerId: string) => {
+    clearError();
+    await killPlayer(playerId);
+  };
+
   const handleLeave = () => {
     setShowLeaveConfirm(false);
     disconnect();
@@ -101,24 +106,44 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
 
         {/* Game Info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Player Role */}
+          {/* Player Role/Status */}
           <div className="bg-werewolf-dark/30 rounded-lg p-6">
-            <h3 className="text-xl font-semibold text-werewolf-moon mb-4">Your Role</h3>
-            <div className={`text-3xl font-bold mb-2 ${
-              isFacilitator ? 'text-yellow-400' : 
-              state.playerRole === 'werewolf' ? 'role-werewolf' : 'role-villager'
-            }`}>
-              {isFacilitator ? '👑 FACILITATOR' :
-               state.playerRole === 'werewolf' ? '🐺 WEREWOLF' : '👤 VILLAGER'}
-            </div>
-            <p className="text-werewolf-moon/80 text-sm">
-              {isFacilitator 
-                ? "You are the facilitator! Control the game phases and guide the players."
-                : state.playerRole === 'werewolf' 
-                  ? "You are a werewolf! Work with other werewolves to eliminate villagers."
-                  : "You are a villager! Work together to identify and eliminate the werewolves."
-              }
-            </p>
+            <h3 className="text-xl font-semibold text-werewolf-moon mb-4">Your Status</h3>
+            {/* Show player's own name (except facilitator) */}
+            {!isFacilitator && (
+              <div className="text-lg text-werewolf-moon/90 mb-3">
+                Playing as: <span className="font-semibold text-werewolf-moon">{state.currentPlayer?.name}</span>
+              </div>
+            )}
+            
+            {/* Check if current player is dead */}
+            {!isFacilitator && state.currentPlayer?.isDead ? (
+              <div className="text-center">
+                <div className="text-6xl mb-4">💀</div>
+                <div className="text-2xl font-bold text-red-400 mb-2">You have been killed</div>
+                <p className="text-werewolf-moon/80 text-sm">
+                  You can no longer participate in the game, but you can observe.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className={`text-3xl font-bold mb-2 ${
+                  isFacilitator ? 'text-yellow-400' : 
+                  state.playerRole === 'werewolf' ? 'role-werewolf' : 'role-villager'
+                }`}>
+                  {isFacilitator ? '👑 FACILITATOR' :
+                   state.playerRole === 'werewolf' ? '🐺 WEREWOLF' : '👤 VILLAGER'}
+                </div>
+                <p className="text-werewolf-moon/80 text-sm">
+                  {isFacilitator 
+                    ? "You are the facilitator! Control the game phases and guide the players."
+                    : state.playerRole === 'werewolf' 
+                      ? "You are a werewolf! Work with other werewolves to eliminate villagers."
+                      : "You are a villager! Work together to identify and eliminate the werewolves."
+                  }
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Players List */}
@@ -128,17 +153,39 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
             </h3>
             <div className="space-y-2 max-h-40 overflow-y-auto">
               {state.currentRoom?.players?.map((player) => (
-                <div key={player.id} className="player-card flex items-center justify-between">
+                <div key={player.id} className={`player-card flex items-center justify-between ${
+                  player.isDead ? 'opacity-60 bg-red-900/10' : ''
+                }`}>
                   <div className="flex items-center">
-                    <span className="text-werewolf-moon font-medium">{player.name}</span>
+                    <span className={`font-medium ${
+                      player.isDead ? 'text-red-400 line-through' : 'text-werewolf-moon'
+                    }`}>
+                      {player.isDead && '💀 '}{player.name}
+                    </span>
                     {state.currentRoom?.facilitatorId === player.id && (
                       <span className="facilitator-badge ml-2">Facilitator</span>
                     )}
                   </div>
-                  <span className="text-werewolf-moon/60 text-sm">
-                    {(isWerewolf || isFacilitator) && player.role === 'werewolf' ? '🐺' : 
-                     isFacilitator && player.role === 'villager' ? '👤' : '❓'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-werewolf-moon/60 text-sm">
+                      {(isWerewolf || isFacilitator) && player.role === 'werewolf' ? '🐺' : 
+                       isFacilitator && player.role === 'villager' ? '👤' : '❓'}
+                    </span>
+                    {/* Kill/Revive button for facilitator */}
+                    {isFacilitator && player.id !== state.currentRoom?.facilitatorId && (
+                      <button
+                        onClick={() => handleKillPlayer(player.id)}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          player.isDead 
+                            ? 'bg-green-600 hover:bg-green-700 text-white' 
+                            : 'bg-red-600 hover:bg-red-700 text-white'
+                        }`}
+                        title={player.isDead ? 'Revive player' : 'Kill player'}
+                      >
+                        {player.isDead ? '🔄' : '💀'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

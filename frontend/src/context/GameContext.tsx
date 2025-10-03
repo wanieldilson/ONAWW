@@ -10,6 +10,7 @@ interface GameContextType {
   startGame: () => Promise<void>;
   changePhase: (phase: GamePhase) => Promise<void>;
   sendWerewolfMessage: (message: string) => Promise<void>;
+  killPlayer: (playerId: string) => Promise<void>;
   setError: (error: string | null) => void;
   clearError: () => void;
   disconnect: () => void;
@@ -98,6 +99,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     socketService.onPhaseChanged((data) => {
       dispatch({ type: 'SET_GAME_PHASE', payload: data.phase });
+    });
+
+    socketService.onPlayerKilled((data) => {
+      dispatch({ type: 'UPDATE_PLAYERS', payload: data.players });
     });
 
     return () => {
@@ -200,6 +205,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const killPlayer = async (playerId: string): Promise<void> => {
+    try {
+      dispatch({ type: 'SET_ERROR', payload: null });
+      const response = await socketService.killPlayer(playerId);
+      
+      if (!response.success) {
+        dispatch({ type: 'SET_ERROR', payload: response.error?.message || 'Failed to kill player' });
+      }
+    } catch (error) {
+      console.error('Error killing player:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to kill player' });
+    }
+  };
+
   const disconnect = (): void => {
     socketService.disconnect();
     dispatch({ type: 'RESET_GAME' });
@@ -214,6 +233,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     startGame,
     changePhase,
     sendWerewolfMessage,
+    killPlayer,
     setError,
     clearError,
     disconnect,

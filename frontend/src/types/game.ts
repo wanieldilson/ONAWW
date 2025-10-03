@@ -5,6 +5,7 @@ export interface Player {
   id: string;
   name: string;
   role?: Role;
+  isDead?: boolean;
 }
 
 export interface GameRoom {
@@ -39,6 +40,8 @@ export enum GameEvents {
   PHASE_CHANGED = 'phase_changed',
   WEREWOLF_CHAT = 'werewolf_chat',
   WEREWOLF_MESSAGE = 'werewolf_message',
+  KILL_PLAYER = 'kill_player',
+  PLAYER_KILLED = 'player_killed',
   ERROR = 'error',
   ROOM_INFO = 'room_info'
 }

@@ -205,6 +205,48 @@ export class GameService {
   }
 
   /**
+   * Kill a player (facilitator only)
+   */
+  killPlayer(facilitatorSocketId: string, roomId: string, playerId: string): GameRoom | null {
+    const room = this.gameState.rooms.get(roomId);
+    
+    if (!room || room.facilitatorId !== facilitatorSocketId || !room.gameStarted) {
+      return null;
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) {
+      return null;
+    }
+
+    player.isDead = true;
+    this.gameState.rooms.set(roomId, room);
+    
+    return room;
+  }
+
+  /**
+   * Revive a player (facilitator only)
+   */
+  revivePlayer(facilitatorSocketId: string, roomId: string, playerId: string): GameRoom | null {
+    const room = this.gameState.rooms.get(roomId);
+    
+    if (!room || room.facilitatorId !== facilitatorSocketId || !room.gameStarted) {
+      return null;
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) {
+      return null;
+    }
+
+    player.isDead = false;
+    this.gameState.rooms.set(roomId, room);
+    
+    return room;
+  }
+
+  /**
    * Clean up old rooms (call periodically)
    */
   cleanupOldRooms(): void {
