@@ -175,6 +175,25 @@ class SocketService {
     }
   }
 
+  doctorHeal(targetPlayerId: string): Promise<{ success: boolean; message?: string; error?: { message: string } }> {
+    return new Promise((resolve) => {
+      if (!this.socket) {
+        resolve({ success: false, error: { message: 'Not connected to server' } });
+        return;
+      }
+
+      this.socket.emit(GameEvents.DOCTOR_HEAL, { targetPlayerId }, (response: any) => {
+        resolve(response);
+      });
+    });
+  }
+
+  onPlayerAction(callback: (data: { type: string; actor: string; target: string; message: string; timestamp: string }) => void): void {
+    if (this.socket) {
+      this.socket.on(GameEvents.PLAYER_ACTION, callback);
+    }
+  }
+
   getSocket(): Socket | null {
     return this.socket;
   }

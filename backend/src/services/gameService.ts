@@ -114,16 +114,17 @@ export class GameService {
 
   /**
    * Assign roles to players
-   * 4-5 players = 1 werewolf
-   * 6+ players = 2 werewolves
+   * 4-5 players = 1 werewolf, 1 doctor
+   * 6+ players = 2 werewolves, 1 doctor
    * Facilitator does not get a role
    */
   private assignRoles(room: GameRoom): void {
     // Filter out facilitator from role assignment
     const playersToAssign = room.players.filter(player => player.socketId !== room.facilitatorId);
     
-    // Determine werewolf count based on non-facilitator player count
+    // Determine role counts based on non-facilitator player count
     const werewolfCount = playersToAssign.length >= 5 ? 2 : 1;
+    const doctorCount = 1; // Always 1 doctor
     
     // Shuffle players (excluding facilitator)
     for (let i = playersToAssign.length - 1; i > 0; i--) {
@@ -131,13 +132,22 @@ export class GameService {
       [playersToAssign[i], playersToAssign[j]] = [playersToAssign[j], playersToAssign[i]];
     }
 
+    let assignedCount = 0;
+
     // Assign werewolf roles
     for (let i = 0; i < werewolfCount; i++) {
-      playersToAssign[i].role = 'werewolf';
+      playersToAssign[assignedCount].role = 'werewolf';
+      assignedCount++;
+    }
+
+    // Assign doctor role
+    for (let i = 0; i < doctorCount; i++) {
+      playersToAssign[assignedCount].role = 'doctor';
+      assignedCount++;
     }
 
     // Assign villager roles to the rest
-    for (let i = werewolfCount; i < playersToAssign.length; i++) {
+    for (let i = assignedCount; i < playersToAssign.length; i++) {
       playersToAssign[i].role = 'villager';
     }
 

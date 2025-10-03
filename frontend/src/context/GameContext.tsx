@@ -11,6 +11,7 @@ interface GameContextType {
   changePhase: (phase: GamePhase) => Promise<void>;
   sendWerewolfMessage: (message: string) => Promise<void>;
   killPlayer: (playerId: string) => Promise<void>;
+  doctorHeal: (targetPlayerId: string) => Promise<void>;
   setError: (error: string | null) => void;
   clearError: () => void;
   disconnect: () => void;
@@ -219,6 +220,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const doctorHeal = async (targetPlayerId: string): Promise<void> => {
+    try {
+      dispatch({ type: 'SET_ERROR', payload: null });
+      const response = await socketService.doctorHeal(targetPlayerId);
+      
+      if (!response.success) {
+        dispatch({ type: 'SET_ERROR', payload: response.error?.message || 'Failed to heal player' });
+      }
+    } catch (error) {
+      console.error('Error healing player:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to heal player' });
+    }
+  };
+
   const disconnect = (): void => {
     socketService.disconnect();
     dispatch({ type: 'RESET_GAME' });
@@ -234,6 +249,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     changePhase,
     sendWerewolfMessage,
     killPlayer,
+    doctorHeal,
     setError,
     clearError,
     disconnect,

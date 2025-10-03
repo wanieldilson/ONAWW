@@ -366,6 +366,72 @@ export class SocketHandlers {
       }
     });
 
+    // Handle doctor heal
+    socket.on(GameEvents.DOCTOR_HEAL, (data: { targetPlayerId: string }, callback) => {
+      try {
+        const room = this.gameService.findRoomBySocketId(socket.id);
+        
+        if (!room || !room.gameStarted) {
+          callback({
+            success: false,
+            error: { message: 'Game not found or not started' }
+          });
+          return;
+        }
+
+        // Find the doctor player
+        const doctor = room.players.find(p => p.socketId === socket.id);
+        if (!doctor || doctor.role !== 'doctor') {
+          callback({
+            success: false,
+            error: { message: 'Only the doctor can heal players' }
+          });
+          return;
+        }
+
+        if (room.gamePhase !== 'night') {
+          callback({
+            success: false,
+            error: { message: 'Doctor can only heal during night phase' }
+          });
+          return;
+        }
+
+        // Find target player
+        const targetPlayer = room.players.find(p => p.id === data.targetPlayerId);
+        if (!targetPlayer) {
+          callback({
+            success: false,
+            error: { message: 'Target player not found' }
+          });
+          return;
+        }
+
+        console.log(`Doctor ${doctor.name} chose to heal ${targetPlayer.name} in room ${room.password}`);
+
+        // Notify facilitator about the doctor's action
+        this.io.to(room.facilitatorId).emit(GameEvents.PLAYER_ACTION, {
+          type: 'doctor_heal',
+          actor: doctor.name,
+          target: targetPlayer.name,
+          message: `Doctor ${doctor.name} has chosen to heal ${targetPlayer.name}`,
+          timestamp: new Date().toISOString()
+        });
+
+        callback({
+          success: true,
+          message: `You chose to heal ${targetPlayer.name}`
+        });
+
+      } catch (error) {
+        console.error('Error handling doctor heal:', error);
+        callback({
+          success: false,
+          error: { message: 'Failed to heal player' }
+        });
+      }
+    });
+
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
       

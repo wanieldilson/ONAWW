@@ -1,4 +1,4 @@
-export type Role = 'villager' | 'werewolf';
+export type Role = 'villager' | 'werewolf' | 'doctor';
 export type GamePhase = 'day' | 'night';
 
 export interface Player {
@@ -37,6 +37,8 @@ export enum GameEvents {
   WEREWOLF_MESSAGE = 'werewolf_message',
   KILL_PLAYER = 'kill_player',
   PLAYER_KILLED = 'player_killed',
+  DOCTOR_HEAL = 'doctor_heal',
+  PLAYER_ACTION = 'player_action',
   ERROR = 'error',
   ROOM_INFO = 'room_info'
 }

@@ -13,15 +13,26 @@ interface WerewolfMessage {
   timestamp: string;
 }
 
+interface PlayerAction {
+  type: string;
+  actor: string;
+  target: string;
+  message: string;
+  timestamp: string;
+}
+
 const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
-  const { state, changePhase, sendWerewolfMessage, killPlayer, clearError, disconnect } = useGame();
+  const { state, changePhase, sendWerewolfMessage, killPlayer, doctorHeal, clearError, disconnect } = useGame();
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [werewolfMessages, setWerewolfMessages] = useState<WerewolfMessage[]>([]);
   const [werewolfInput, setWerewolfInput] = useState('');
   const [phaseMessage, setPhaseMessage] = useState('');
+  const [playerActions, setPlayerActions] = useState<PlayerAction[]>([]);
+  const [selectedHealTarget, setSelectedHealTarget] = useState<string | null>(null);
 
   const isFacilitator = state.currentRoom?.isPlayerFacilitator;
   const isWerewolf = state.playerRole === 'werewolf' && !isFacilitator;
+  const isDoctor = state.playerRole === 'doctor' && !isFacilitator;
   const canSeeWerewolfChat = isWerewolf || isFacilitator;
   const canSendWerewolfMessages = isWerewolf && !isFacilitator;
   const isNight = state.gamePhase === 'night';
@@ -35,14 +46,21 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
 
     const handlePhaseChanged = (data: { phase: string; message: string }) => {
       setPhaseMessage(data.message);
-      // Clear werewolf messages when switching to day
-      if (data.phase === 'day') {
+      // Clear werewolf messages when switching to day (except for facilitator)
+      if (data.phase === 'day' && !isFacilitator) {
         setWerewolfMessages([]);
       }
+      // Clear heal selection when phase changes
+      setSelectedHealTarget(null);
+    };
+
+    const handlePlayerAction = (data: PlayerAction) => {
+      setPlayerActions(prev => [...prev, data]);
     };
 
     socketService.onWerewolfMessage(handleWerewolfMessage);
     socketService.onPhaseChanged(handlePhaseChanged);
+    socketService.onPlayerAction(handlePlayerAction);
 
     return () => {
       // Note: We don't remove all listeners here as they're managed by GameContext
@@ -65,6 +83,12 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
   const handleKillPlayer = async (playerId: string) => {
     clearError();
     await killPlayer(playerId);
+  };
+
+  const handleDoctorHeal = async (playerId: string) => {
+    clearError();
+    setSelectedHealTarget(playerId);
+    await doctorHeal(playerId);
   };
 
   const handleLeave = () => {
@@ -129,17 +153,21 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
               <div>
                 <div className={`text-3xl font-bold mb-2 ${
                   isFacilitator ? 'text-yellow-400' : 
-                  state.playerRole === 'werewolf' ? 'role-werewolf' : 'role-villager'
+                  state.playerRole === 'werewolf' ? 'role-werewolf' : 
+                  state.playerRole === 'doctor' ? 'text-green-400' : 'role-villager'
                 }`}>
                   {isFacilitator ? '👑 FACILITATOR' :
-                   state.playerRole === 'werewolf' ? '🐺 WEREWOLF' : '👤 VILLAGER'}
+                   state.playerRole === 'werewolf' ? '🐺 WEREWOLF' : 
+                   state.playerRole === 'doctor' ? '🩺 DOCTOR' : '👤 VILLAGER'}
                 </div>
                 <p className="text-werewolf-moon/80 text-sm">
                   {isFacilitator 
                     ? "You are the facilitator! Control the game phases and guide the players."
                     : state.playerRole === 'werewolf' 
                       ? "You are a werewolf! Work with other werewolves to eliminate villagers."
-                      : "You are a villager! Work together to identify and eliminate the werewolves."
+                      : state.playerRole === 'doctor'
+                        ? "You are the doctor! During night phase, you can heal one player to protect them."
+                        : "You are a villager! Work together to identify and eliminate the werewolves."
                   }
                 </p>
               </div>
@@ -169,8 +197,26 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
                   <div className="flex items-center gap-2">
                     <span className="text-werewolf-moon/60 text-sm">
                       {(isWerewolf || isFacilitator) && player.role === 'werewolf' ? '🐺' : 
+                       isFacilitator && player.role === 'doctor' ? '🩺' :
                        isFacilitator && player.role === 'villager' ? '👤' : '❓'}
                     </span>
+                    
+                    {/* Doctor heal button during night */}
+                    {isDoctor && isNight && !player.isDead && player.id !== state.currentPlayer?.id && (
+                      <button
+                        onClick={() => handleDoctorHeal(player.id)}
+                        disabled={selectedHealTarget === player.id}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          selectedHealTarget === player.id
+                            ? 'bg-green-700 text-white cursor-not-allowed'
+                            : 'bg-green-600 hover:bg-green-700 text-white'
+                        }`}
+                        title={selectedHealTarget === player.id ? 'Selected for healing' : 'Heal this player'}
+                      >
+                        {selectedHealTarget === player.id ? '✅' : '🩺'}
+                      </button>
+                    )}
+                    
                     {/* Kill/Revive button for facilitator */}
                     {isFacilitator && player.id !== state.currentRoom?.facilitatorId && (
                       <button
@@ -192,11 +238,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
           </div>
         </div>
 
-        {/* Werewolf Chat (visible to werewolves and facilitator during night) */}
-        {canSeeWerewolfChat && isNight && (
+        {/* Werewolf Chat (visible to werewolves during night, facilitator always) */}
+        {((canSeeWerewolfChat && isNight) || isFacilitator) && (
           <div className="bg-red-900/20 border border-red-500/50 rounded-lg p-6 mb-6">
             <h3 className="text-xl font-semibold text-red-200 mb-4">
-              🐺 Werewolf Chat {isFacilitator && <span className="text-yellow-400 text-sm">(Observer Mode)</span>}
+              🐺 Werewolf Chat {isFacilitator && <span className="text-yellow-400 text-sm">(Observer Mode{isDay ? ' - Day View' : ''})</span>}
             </h3>
             
             {/* Messages */}
@@ -204,7 +250,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
               {werewolfMessages.length === 0 ? (
                 <p className="text-red-200/60 text-center py-4">
                   {isFacilitator 
-                    ? "No werewolf messages yet. You can observe their coordination here."
+                    ? `No werewolf messages yet. ${isDay ? 'Previous night conversations will appear here.' : 'You can observe their coordination here.'}`
                     : "No messages yet. Coordinate with your fellow werewolves!"
                   }
                 </p>
@@ -223,8 +269,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
               )}
             </div>
 
-            {/* Message Input (only for werewolves, not facilitator) */}
-            {canSendWerewolfMessages ? (
+            {/* Message Input (only for werewolves during night, not facilitator) */}
+            {canSendWerewolfMessages && isNight ? (
               <form onSubmit={handleSendWerewolfMessage} className="flex gap-2">
                 <input
                   type="text"
@@ -245,9 +291,53 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
                   Send
                 </button>
               </form>
-            ) : (
+            ) : isFacilitator ? (
               <div className="text-center py-3 text-yellow-200/80 text-sm bg-yellow-900/20 rounded-lg border border-yellow-500/30">
                 👑 As the facilitator, you can observe werewolf coordination but cannot participate in their chat.
+                {isDay && <div className="mt-1">💡 This shows previous night conversations for reference.</div>}
+              </div>
+            ) : (
+              <div className="text-center py-3 text-red-200/80 text-sm bg-red-900/20 rounded-lg border border-red-500/30">
+                🌙 Werewolf chat is only available during the night phase.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Player Actions Log (Facilitator only) */}
+        {isFacilitator && (
+          <div className="bg-blue-900/20 border border-blue-500/50 rounded-lg p-6 mb-6">
+            <h3 className="text-xl font-semibold text-blue-200 mb-4">📋 Player Actions Log</h3>
+            
+            <div className="bg-black/30 rounded-lg p-4 h-40 overflow-y-auto">
+              {playerActions.length === 0 ? (
+                <p className="text-blue-200/60 text-center py-4">
+                  No player actions yet. Special role actions will appear here.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {playerActions.map((action, index) => (
+                    <div key={index} className="text-blue-200 text-sm">
+                      <div className="flex justify-between items-start">
+                        <span className="font-medium">{action.message}</span>
+                        <span className="text-blue-200/60 text-xs ml-2">
+                          {new Date(action.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {playerActions.length > 0 && (
+              <div className="mt-3 text-center">
+                <button
+                  onClick={() => setPlayerActions([])}
+                  className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                >
+                  Clear Log
+                </button>
               </div>
             )}
           </div>
@@ -300,7 +390,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ onBack }) => {
               <>
                 <li>• Werewolves can communicate privately</li>
                 <li>• Werewolves choose their target for elimination</li>
-                <li>• Villagers should remain quiet</li>
+                {isDoctor && <li className="text-green-300">• 🩺 As the doctor, click on a player to heal them!</li>}
+                <li>• Other villagers should remain quiet</li>
               </>
             )}
           </ul>
